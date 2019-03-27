@@ -14,8 +14,22 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-// Reexporting here for backwards compatibility.
-// Please import from '@theia/core/lib/browser' or '@theia/core/lib/browser/keyboard' instead of this module.
-// This module might be removed in future releases.
-import { KeySequence, Keystroke, KeyCode, KeyModifier, Key, SpecialCases, KeysOrKeyCodes } from './keyboard/keys';
-export { KeySequence, Keystroke, KeyCode, KeyModifier, Key, SpecialCases, KeysOrKeyCodes };
+import { IKeyboardLayoutInfo, IKeyboardMapping } from 'native-keymap';
+import { JsonRpcServer } from '../messaging/proxy-factory';
+
+export const keyboardPath = '/services/keyboard';
+
+export const KeyboardLayoutProvider = Symbol('KeyboardLayoutProvider');
+
+export interface KeyboardLayoutProvider extends JsonRpcServer<KeyboardLayoutClient> {
+    getNativeLayout(): Promise<NativeKeyboardLayout>;
+}
+
+export interface KeyboardLayoutClient {
+    onNativeLayoutChanged(newLayout: NativeKeyboardLayout): void;
+}
+
+export interface NativeKeyboardLayout {
+    info: IKeyboardLayoutInfo;
+    mapping: IKeyboardMapping;
+}
