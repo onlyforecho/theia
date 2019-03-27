@@ -21,10 +21,11 @@ import { QuickOpenModel, QuickOpenItem, QuickOpenMode, } from '@theia/core/lib/b
 import { FileSystem, FileSystemUtils } from '@theia/filesystem/lib/common';
 import URI from '@theia/core/lib/common/uri';
 import { PreferenceScope, PreferenceService } from '@theia/preferences/lib/browser';
-import { CppBuildConfigurationManager, CppBuildConfiguration, CPP_BUILD_CONFIGURATIONS_PREFERENCE_KEY } from './cpp-build-configurations';
+import { CppBuildConfigurationManager, CPP_BUILD_CONFIGURATIONS_PREFERENCE_KEY } from './cpp-build-configurations';
 import { EditorManager } from '@theia/editor/lib/browser';
 import { CommonCommands, QuickPickService, LabelProvider } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser';
+import { CppBuildConfiguration } from '../common/cpp-build-configuration-protocol';
 
 @injectable()
 export class CppBuildConfigurationChanger implements QuickOpenModel {
