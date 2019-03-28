@@ -15,15 +15,18 @@
  ********************************************************************************/
 
 import PerfectScrollbar from 'perfect-scrollbar';
-import { TabBar, Title, Widget } from '@phosphor/widgets';
+import { TabBar, Title, Widget, DockLayout } from '@phosphor/widgets';
 import { VirtualElement, h, VirtualDOM, ElementInlineStyle } from '@phosphor/virtualdom';
-import { MenuPath } from '../../common';
+import { MenuPath, Disposable, DisposableCollection } from '../../common';
 import { ContextMenuRenderer } from '../context-menu-renderer';
 import { Signal } from '@phosphor/signaling';
 import { Message } from '@phosphor/messaging';
 import { ArrayExt } from '@phosphor/algorithm';
 import { ElementExt } from '@phosphor/domutils';
 import { TabBarToolbarRegistry, TabBarToolbar } from './tab-bar-toolbar';
+import { TheiaDockPanel, MAIN_AREA_ID, BOTTOM_AREA_ID } from './theia-dock-panel';
+
+const FULL_SCREEN_CLASS = 'theia-fullscreen';
 
 /** The class name added to hidden content nodes, which are required to render vertical side bars. */
 const HIDDEN_CONTENT_CLASS = 'theia-TabBar-hidden-content';
@@ -70,8 +73,16 @@ export class TabBarRenderer extends TabBar.Renderer {
      */
     contextMenuPath?: MenuPath;
 
+    protected readonly fullScreenElement: HTMLDivElement;
+
+    // TODO refactor shell, rendered should only receive props with event handlers
+    // events should be handled by clients, like ApplicationShell
+    // right now it is mess: (1) client logic belong to renderer, (2) cyclic dependencies between renderes and clients
     constructor(protected readonly contextMenuRenderer?: ContextMenuRenderer) {
         super();
+        this.fullScreenElement = document.createElement('div');
+        this.fullScreenElement.style.display = 'none';
+        document.body.appendChild(this.fullScreenElement);
     }
 
     /**
@@ -87,7 +98,8 @@ export class TabBarRenderer extends TabBar.Renderer {
         return h.li(
             {
                 key, className, title: title.caption, style, dataset,
-                oncontextmenu: event => this.handleContextMenuEvent(event, title)
+                oncontextmenu: event => this.handleContextMenuEvent(event, title),
+                ondblclick: event => this.handleDblClickEvent(event, title)
             },
             this.renderIcon(data),
             this.renderLabel(data),
@@ -159,7 +171,7 @@ export class TabBarRenderer extends TabBar.Renderer {
         return h.div({ className, style }, data.title.iconLabel);
     }
 
-    protected handleContextMenuEvent(event: MouseEvent, title: Title<Widget>) {
+    protected handleContextMenuEvent(event: MouseEvent, title: Title<Widget>): void {
         if (this.contextMenuRenderer && this.contextMenuPath) {
             event.stopPropagation();
             event.preventDefault();
@@ -175,6 +187,49 @@ export class TabBarRenderer extends TabBar.Renderer {
             this.contextMenuRenderer.render(this.contextMenuPath, event);
         }
     }
+
+    protected readonly toDisposeOnFullScreen = new Map<TheiaDockPanel, DisposableCollection>();
+    protected handleDblClickEvent(event: MouseEvent, title: Title<Widget>): void {
+        const area = title.owner.parent;
+        if (area instanceof TheiaDockPanel && (area.id === BOTTOM_AREA_ID || area.id === MAIN_AREA_ID)) {
+            const areaContainer = area.node.parentElement;
+            if (areaContainer) {
+                const toDispose = this.toDisposeOnFullScreen.get(area) || new DisposableCollection();
+                this.toDisposeOnFullScreen.set(area, toDispose);
+
+                if (areaContainer !== this.fullScreenElement) {
+                    this.fullScreenElement.style.display = 'block';
+                    area.addClass(FULL_SCREEN_CLASS);
+                    this.fullScreenElement.appendChild(area.node);
+                    area.fit();
+                    toDispose.push(Disposable.create(() => {
+                        this.fullScreenElement.style.display = 'none';
+                        area.removeClass(FULL_SCREEN_CLASS);
+                        areaContainer.appendChild(area.node);
+                        area.fit();
+                    }));
+
+                    const layout = area.layout;
+                    if (layout instanceof DockLayout) {
+                        const onResize = layout['onResize'];
+                        layout['onResize'] = () => onResize.bind(layout)(Widget.ResizeMessage.UnknownSize);
+                        toDispose.push(Disposable.create(() => layout['onResize'] = onResize));
+                    }
+
+                    const removedListener = () => {
+                        if (!area.widgets().next()) {
+                            toDispose.dispose();
+                        }
+                    };
+                    area.widgetRemoved.connect(removedListener);
+                    toDispose.push(Disposable.create(() => area.widgetRemoved.disconnect(removedListener)));
+                } else {
+                    toDispose.dispose();
+                }
+            }
+        }
+    }
+
 }
 
 /**

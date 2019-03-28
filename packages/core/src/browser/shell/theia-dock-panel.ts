@@ -18,6 +18,9 @@ import { find, toArray, ArrayExt } from '@phosphor/algorithm';
 import { TabBar, Widget, DockPanel, Title } from '@phosphor/widgets';
 import { Signal } from '@phosphor/signaling';
 
+export const MAIN_AREA_ID = 'theia-main-content-panel';
+export const BOTTOM_AREA_ID = 'theia-bottom-content-panel';
+
 /**
  * This specialization of DockPanel adds various events that are used for implementing the
  * side panels of the application shell.
